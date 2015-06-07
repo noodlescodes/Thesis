@@ -1,0 +1,128 @@
+\documentclass[a4paper]{article}
+
+\usepackage{fancyhdr}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{amsthm}
+
+\usepackage[hmargin=3cm,vmargin=3.5cm]{geometry}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{definition}{Definition}
+\newtheorem*{definition*}{Definition}
+
+\renewcommand{\deg}[1]{\text{deg}#1}
+
+\pagenumbering{arabic}
+\pagestyle{fancyplain}
+
+\fancyhf{}
+%\lhead[Teaching \LaTeX]{Teaching \LaTeX}
+%\rhead[Exercise 1]{Exercise 1}
+%\cfoot[\thepage]{\thepage}
+
+\begin{document}
+\section{Background}
+Extremal graph theory is concerned with the study of maximal or minimal graphs which satisfy particular properties. Extremality may be in regard to different graph invariants, for example the order or girth. This gives insight into how the global properties of a graph influence the local properties of subgraphs.
+
+A classical result in extremal graph theory is by Tur\'an.
+\begin{theorem}[Tur\'an]
+Let $G$ be any graph on $n$ vertices, such that $G$ is $K_{r+1}$-free. Then the number of edges in $G$ is at most $$\frac{r-1}{r}\frac{n^2}{2}=\left (1-\frac{1}{r}\right )\frac{n^2}{2}$$
+\end{theorem}
+
+Tur\'an's Theorem is a a density result. Similar questions can be asked for other forbidden subgraphs, or even sets of forbidden subgraphs. These problems are often called Tur\'an type problems.
+
+At the opposite end of the spectrum, we can ask questions regarding the minimum degree of a graph. For example it can be shown that a graph of order $n$ with $\binom{n-1}{2}$ edges can contain an isolated vertex, even though almost every edge possible is present in the graph. This implies that graphs with very high densities can have no substantial structure on every vertex. To give some interesting results in this regard, it is often better to consider graphs with a minimum degree. This removes the trivial cases of isolated vertices. The following theorem due to Dirac is a nice result exploiting this consideration.
+\begin{theorem}[Dirac]
+A graph with $n\geq 3$ vertices is Hamiltonian if every vertex has degree $\frac{n}{2}$ or more.
+\end{theorem}
+
+\section{Definitions and Notation}
+The following section gives the definitions we are using for common words which may have some ambiguity within the realms of graph theory.
+\begin{definition*}[Graph]
+A graph $G = (V, E)$ is an ordered pair comprising of a vertex set, $V$, and an edge set, $E$. No pair of vertices can connect to each other more than once, and no vertex can connect to itself.
+\end{definition*}
+\begin{definition*}[Degree/Valency]
+The degree of a vertex, $v$, is the number of edges incident to $v$. Denote the degree of $v$ by $\deg(v)$.
+\end{definition*}
+\begin{definition*}[Isolated Vertex]
+We call $v$ isolated if $\deg(v)=0$.
+\end{definition*}
+\begin{definition*}[Path]
+We call a graph a path of length $n$ if the vertices can be listed in order, $v_0, v_1, \ldots, v_n$ so that the edges are $v_{i-1}v_i$ for each $i\in\{1, 2, \ldots, n\}$.
+\end{definition*}
+\begin{definition*}[Cycle]
+A cycle is a path with the added stipulation that $v_nv_0$ is an edge. We denote a cycle with $n$ vertices $C_n$.
+\end{definition*}
+\begin{definition*}[Complete graph]
+A graph on $n$ vertices is complete if there is a path of length 1 between every pair of vertices. Denoted by $K_n$.
+\end{definition*}
+\begin{definition*}[Connected Graph]
+We call a graph connected if there is a path from any vertex in the graph to every other vertex in the graph.
+\end{definition*}
+\begin{definition*}[Distance between two vertices]
+The distance between two vertices, $u$, $v$, is the length of the shortest path from $u$ to $v$, denoted $d(u, v)$. If there is no path from $u$ to $v$, then $d(u,v)=\infty$ by convention.
+\end{definition*}
+\begin{definition*}[Eccentricity]
+The eccentricity of a vertex, $v$, is defined as $\epsilon(v)=\max\{d(v,u) : u\in V\}$. That is, it is the longest of all shortest paths.
+\end{definition*}
+\begin{definition*}[Radius]
+The radius, $r$, of a graph is given by $r=\min_{v\in V}\epsilon(v)$, that is, the smallest eccentricity of the graph.
+\end{definition*}
+\begin{definition*}[Diameter]
+The diameter, $d$, of a graph is given by $d=\max_{v\in V}\epsilon(v)$, that is, the largest eccentricity of the graph.
+\end{definition*}
+\begin{definition*}[Girth]
+The girth of a graph is the length of a shortest cycle in the graph.
+\end{definition*}
+\begin{definition*}[Regular Graph]
+A graph is said to be regular if $\forall u,v\in V$ it holds that $\deg(u)=\deg(v)$.
+\end{definition*}
+
+\section{Moore Graphs}
+A Moore graph is a regular graph of degree $d$ and diameter $k$ with $$|V|=1+\sum_{i=0}^{k-1}(d-1)^i.$$ This is called the Moore bound. An equivalent definition, one which will be exploited later, is to define Moore graphs in terms of girth. A graph is a Moore graph if it has diameter $k$ with girth $2k+1$.
+
+There are only a few known examples, with most graphs having been classified as not being Moore graphs. The known examples are
+\begin{itemize}
+	\item Complete graphs, $K_n$ on $n>2$ vertices.
+	\item Odd cycles, $C_{2n+1}$
+	\item The Petersen graph
+	\item The Hoffman-Singleton graph
+\end{itemize}
+
+There is one possible graph left to be classified, it is of degree 57 and diameter 2. Should this graph exist some things are known about it. It is not vertex transitive (Higman). Ma\v caj and \v Sir\'a\v n also proved that the order of the automorphism group of it, should it exist, is at most 375.
+
+\section{Extremal $C_t$ free Graphs}
+We call a graph, $G$, extremal $C_t$ free if $G$ has maximal cardinality edge set and girth $g$ at least $t+1$. The set of extremal $C_t$ free graphs is denoted by $EX(n; t)=EX(n;\{C_3, C_4,\ldots,C_t\})$. The size of the edge set is the extremal number $ex(n; t)=ex(n; \{C_3, C_4, \ldots, C_t\})$.
+
+The rest of the discussion will be concerned about fixing $t=4$, that is, we will talk about graphs of girth 5. It is know for all $n<33$ what $ex(n; 4)$ is. The Hoffman-Singleton graph satisfies the conditions to be extremal $C_4$ free, and is the order larger than 33 that we know the exact value of the extremal number. Should the conjectured Moore graph exist, then it would also satisfy the conditions to be extremal $C_4$ free. There are construtive lower bounds on $ex(n; 4)$ for any $n$ which it seems current computer searches will be able to find a representative from $EX(n; 4)$.
+
+\section{Na\"ive Approaches to finding $C_4$ free graphs}
+Early attempts at computer searches for $C_4$ free graphs can be charactised as slow and not well thought out, although it is not obvious why some of these techniques fail.
+\subsection{Binary Integer Linear Program}
+As a graph can be considered as an array of binary variables, it is natural to consider a binary integer linear program (BILP) approach to completing a partially filled in adjacency matrix. It proved successful with small orders and a lot of known edges, but it did not succeed for larger orders or small orders without many predefined edges.
+
+The model used was akin to the following model.
+\begin{itemize}
+	\item $n$ is the number of vertices
+	\item $\delta:=$ minimum degree.
+	\item $\Delta:=$ maximum degree.
+	\item $G_{i,j} = 1$ if $v_iv_j$ is a known edge, otherwise $G_{i,j}$ is not defined.
+	\item $A$ is the adjacency matrix of the graph.
+\end{itemize}
+\begin{align}
+\sum_{i=1}^{n}A_{i,j}&\geq\delta \\
+\sum_{i=1}^{n}A_{i,j}&\leq\Delta \\
+A_{i,j}+A_{j,k}+A_{k,i} &\leq 2 \\
+A_{i,j}+A_{j,k}+A_{k,l}+A_{l,i} &\leq 3 \\
+A_{i,i}&=0 \\
+A_{i,j}&=A_{j,i} \\
+A_{i,j}&=G_{i,j}
+\end{align}
+Constraint (1) and (2) encodes the degree of each vertex being between a known minimum and maximum degree. Constraint (3) ensures there are no three cycles, similarly constraint (4) ensures there are no four cycles. Constrain (5) ensures no vertex connects to itself. Constraint (6) makes sure the adjacency matrix is symmetric. Constraint (7) ensure our known edges are included in our output.
+
+The idea for this approach came from using a similar approach to finding mutually orthogonal latin squares. It had similar results for that problem.
+
+\subsection{Search tree with poor cycle detection}
+\end{document}
