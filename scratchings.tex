@@ -5,6 +5,8 @@
 \usepackage{listings}
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage{tikz}
+\usepackage[]{algorithm2e}
 
 \usepackage[hmargin=3cm,vmargin=3.5cm]{geometry}
 
@@ -13,6 +15,8 @@
 \newtheorem*{definition*}{Definition}
 
 \renewcommand{\deg}[1]{\text{deg}#1}
+\newcommand{\Tr}{\text{Tr}}
+\newcommand{\neigh}{\text{neigh}}
 
 \pagenumbering{arabic}
 \pagestyle{fancyplain}
@@ -79,6 +83,9 @@ The girth of a graph is the length of a shortest cycle in the graph.
 \begin{definition*}[Regular Graph]
 A graph is said to be regular if $\forall u,v\in V$ it holds that $\deg(u)=\deg(v)$.
 \end{definition*}
+\begin{definition*}[Neighbourhood of a vertex]
+The neighbourhood of a vertex $v$ is the set of all vertices adjancent to $v$, denoted $\neigh(v)$.
+\end{definition*}
 
 \section{Moore Graphs}
 A Moore graph is a regular graph of degree $d$ and diameter $k$ with $$|V|=1+\sum_{i=0}^{k-1}(d-1)^i.$$ This is called the Moore bound. An equivalent definition, one which will be exploited later, is to define Moore graphs in terms of girth. A graph is a Moore graph if it has diameter $k$ with girth $2k+1$.
@@ -98,8 +105,8 @@ We call a graph, $G$, extremal $C_t$ free if $G$ has maximal cardinality edge se
 
 The rest of the discussion will be concerned about fixing $t=4$, that is, we will talk about graphs of girth 5. It is know for all $n<33$ what $ex(n; 4)$ is. The Hoffman-Singleton graph satisfies the conditions to be extremal $C_4$ free, and is the order larger than 33 that we know the exact value of the extremal number. Should the conjectured Moore graph exist, then it would also satisfy the conditions to be extremal $C_4$ free. There are construtive lower bounds on $ex(n; 4)$ for any $n$ which it seems current computer searches will be able to find a representative from $EX(n; 4)$.
 
-\section{Na\"ive Approaches to finding $C_4$ free graphs}
-Early attempts at computer searches for $C_4$ free graphs can be charactised as slow and not well thought out, although it is not obvious why some of these techniques fail.
+\section{Na\"ive Approaches to finding $C_3$ and $C_4$ free graphs}
+My early attempts at computer searches for $C_4$ free graphs were slow and not well thought out. On reflection, there are some faults with the methods used, which have been corrected in subsequent computer searches.
 \subsection{Binary Integer Linear Program}
 As a graph can be considered as an array of binary variables, it is natural to consider a binary integer linear program (BILP) approach to completing a partially filled in adjacency matrix. It proved successful with small orders and a lot of known edges, but it did not succeed for larger orders or small orders without many predefined edges.
 
@@ -122,7 +129,125 @@ A_{i,j}&=G_{i,j}
 \end{align}
 Constraint (1) and (2) encodes the degree of each vertex being between a known minimum and maximum degree. Constraint (3) ensures there are no three cycles, similarly constraint (4) ensures there are no four cycles. Constrain (5) ensures no vertex connects to itself. Constraint (6) makes sure the adjacency matrix is symmetric. Constraint (7) ensure our known edges are included in our output.
 
-The idea for this approach came from using a similar approach to finding mutually orthogonal latin squares. It had similar results for that problem.
+The idea for this approach came from using a similar approach to finding mutually orthogonal latin squares. It had similar results for that problem, in that it worked for small cases, but not for anything noteworthy. The issue with this approach is in the symmetry of a graph. There are multiple isomorphic graphs which all have the same three or four cycle, which a solver struggles to deal with.
+
+An approach for removing this issue of symmetry was the following:
+\begin{enumerate}
+\item remove the constraint for four cycles
+\item solve the resulting model
+\item find all squares in the solution from the adjusted model
+\item add in a constraint disallowing each of the squares found in the previous step
+\item repeat from step 2 until no squares are discovered
+\end{enumerate}
+
+This method worked much better. It still failed on anything noteworthy, but it got to within one or two squares a lot of the time.
 
 \subsection{Search tree with poor cycle detection}
+\label{sec:tree_poor_cycle}
+\subsubsection{Data structure for a graph}
+In this method, we use a double dimension array of integers to store the adjacency matrix of a graph.
+
+\subsubsection{Cycle detection}
+The powers of the adjacency matrix, $A$, of a graph can be used to count the number of three and four cycles in a graph. The number of three cycles is given by
+\begin{equation}
+\label{eqn:number_of_triangles}
+\text{The number of three cycles in a graph}=\frac{\Tr(A^3)}{6}.
+\end{equation}
+This is straightforward to see, with the third power of the adjacency matrix giving the number of paths of length three. The division by six comes from repeated counting, each three cycle is counted twice for the direction you travel it, and three times for every vertex in the three cycle.
+
+The number of four cycles is more complex. There is information contained in $\Tr(A^4)$ that tells us about the four cycles, but there is extra information as well which needs to be removed. Assume $v,u,w\in V(G)$ for the following. Then the extra information can be summarised as follows:
+\begin{itemize}
+\item if $v$ is adjacent to $u$, then there is a path of length four from $v$ to $v$ given by $v,u,v,u,v$. The total amount of this extra information is $$\sum_{v\in V(G)}\deg(v)=\Tr(A^2).$$
+\item A walk of length two can be reversed to give a walk of length four. For example, a walk of $v,u,w$ can be made into $v,u,w,u,v$. The number of walks of length two need to be removed as well, this information is given by the sum of all non diagonal elements in $A^2$.
+\item Let $v$ be adjancent to both $u$ and $w$. Then there is a walk of length four $v,u,v,w,v$. There are $$\sum_{v\in V(G)}\binom{\deg(v)}{2}$$ ways to pick these paths.
+\item Lastly, everything mentioned so far, and all the four cycles, is detected eight times. So we over count eight times the true number, so a division by eight is required.
+\end{itemize}
+These points give us the following formula
+\begin{equation}
+\label{eqn:number_of_squares}
+\text{Number of four cycles}=\frac{\Tr(A^4)-\sum_{i,j}(A^2)_{ij}-\sum_{v\in V(G)}\binom{\deg(v)}{2}}{8}.
+\end{equation}
+
+Equations (\ref{eqn:number_of_triangles}) and (\ref{eqn:number_of_squares}) used in conjunction determine if a graph is of girth at least five. 
+
+\subsubsection{A base graph}
+From here on out, the discussion will be about a graph on 33 vertices, that has been the focus of investigation, although a lot of the techniques described can be used on any graph of girth five.
+
+The graph in question is the following, and will be refered to as \emph{the base graph} from hereon.
+\newline
+
+\textcolor{red}{tikzpicture will go here showing the base graph}
+
+\subsubsection{Search tree}
+A rooted binary tree can be used to generate graphs with more edges than the base graph, and still keep a girth of five. The algorithm used in this approach is quite simple. It uses a stack to do a depth first search of the search tree, with the stack having one node in the tree to begin, the base graph, which is the root of our tree. The outline of the approach follows.\footnote{going to update this with something from an algorithm package so it looks better}
+\begin{enumerate}
+\item Push the root tree onto the stack
+\item Pop the top graph off the stack and store it in a variable for active manipulation \label{alg:loop1}
+\item If the number of edges in the active graph is the conjectured maximum, stop.
+\item Verify that the graph is of girth at least 5. If it's not, go to (\ref{alg:loop1}) \label{alg:verify_girth}
+\item Generate the children of the stored graph \label{alg:generate_children}
+\item Push the left child onto the stack
+\item Push the right child onto the stack
+\item Go to (\ref{alg:loop1})
+\end{enumerate}
+
+In step (\ref{alg:generate_children}) we need to generate the children of a graph. To generate the \emph{left} child we leave the matrix as it is and increment which entry in the adjacency matrix we look at next time. To generate the \emph{right} child we add an edge at the entry in the adjacency matrix we are looking at, then incrememnt which entry in the adjacency matrix we look at next time.
+
+The purpose of pushing the left child before the right child is to explore the right portion of the tree first, as that is where it is suspected a solution will lie should it exist.
+
+In step (\ref{alg:verify_girth}) we simply need to verify that equation (\ref{eqn:number_of_triangles}) and (\ref{eqn:number_of_squares}) are both zero. That is, there are no three or four cycles. In practise, a slight modification of the two equations are used as the divisions are not required if the answer is zero, it will continue to be zero, and if the answer is non zero, it will continue to be non zero.
+
+In verifying the graph is of girth at least 5, there are a number of other steps that can be taken as well, which have been omitted currently. There is more structure known about the graph which allows for more pruning conditions.
+
+This method turned out to be very slow as step (\ref{alg:verify_girth}) required calculating $A^4$.
+
+\subsection{Search tree with good cycle detection}
+\subsubsection{Requirements of implementation language and hardware}
+\label{sec:requirements}
+It is important to note the operations the programming language used to implement this method must have. The following are required of the programming language:
+\begin{itemize}
+\item a guaranteed 32 bit unsigned integer (denoted uint32\_t)
+\item logical \emph{and}, \emph{or}, \emph{not} (denoted \&, $\mid$, and $\sim$ respectively)
+\item unsigned bitshift (left bitshift denoted by $<<$ and right bitshift by $>>$)
+\end{itemize}
+and it would be benificial to have the following functions on the hardware for increased efficiency
+\begin{itemize}
+\item popcount(n) which counts the number of set bits in a binary string
+\end{itemize}
+
+\subsubsection{Data structure for a graph}
+The structure used is now an array of 32 bit integers of length 32. We only need to worry about 32 of the vertices as we can guarantee one vertex in the base graph is not going to be a part of a three or four cycle, and it won't ever be manipulated. The connection between two vertices, $i$ and $j$ is represented by the $j$th bit in the $i$th index of the array, and because of the symmetry of the adjacnecy matrix, vice versa. It is convienent to also have the following constants stored so as not to waste time calculating them frequently:
+\begin{itemize}
+\item DEPTH\_MASK = ($\sim$((uint32\_t) 0) $>>$ (32 - 22))
+\item N = ($1 << 31$)
+\end{itemize}
+
+It is also worth noting that the depth a particular matrix is down the search tree is stored within the adjacency matrix itself, rather than as a seperate variable. This is the purpose of the constant DEPTH\_MASK, to remove it before checking for three or four cycles. The constant N is used to detect if there is a bit set in the first entry of a uint32\_t variable, which is where we store if a graph has a three or four cycle in it.
+
+\subsubsection{Cycle detection}
+We now don't have a natural way to multiple two matrices together to generate a power of a matrix as we've limited the amount of space we're using to represent the connection of two edges to a single bit. We will exploit the fact that we only ever manipulate one connection before checking the girth again to get around calculating powers of matrices.
+
+The following assumes that the edge connecting vertices $i$ and $j$ has just been added.
+
+To check for three cycles, we only need to check if the neighbourhoods of $i$ and $j$ share a vertex. We conviently have a sorted list of the vertices in the graph, and an indicator if they are adjancent for every vertex. The we simply need to do a logical \emph{and} on the entries in the array of 32 bit integers corresponding to vertex $i$ and $j$, and if the resultant is greater than zero, then the intersection of their neighbourhoods is non empty.
+
+Checking for four cycles is more complex. It requires checking to see if vertex $u\not= j$ is not in the neighbourhood of $j$, if it isn't then checking that the intersection of $j$ and $u$'s neighbourhoods have at least two elements in common, $v$ and $w$. If these conditions are satisfied then we have a four cycle $j,v,u,w,j$. So we need to verify that these conditions are not met for all $u\in V(G)$. Checking if $u=j$ is trivial, so assume that $u\not= j$. Then the objective is to make sure the neighbourhoods of $j$ and $u$ don't share two or more vertices. This is achieved through the popcount function. So if we take the popcount of the logical \emph{and} of vertex $u$ and $j$ and do a popcount on the resultant we end up with the cardinality of the intersection of the neighbourhoods of $u$ and $j$. Repeated this for all $u\in V(G)$ and if all of the intersections are less than two, then there is no four cycle in the graph.
+
+\subsubsection{Search tree}
+Essentially the same method is used as in section (\ref{sec:tree_poor_cycle}), a rooted binary tree is used to generate graphs with more edges than the base graph. The algorithm used is the same, with the only difference being in implementation rather than the ideas being used. We still use a stack to do a depth first search, prioritising the right portion of the tree first. We have added a new pruning condition as well, we record the depth a graph is in the tree so we can verify there are enough edges left to reach a lower bound on the maximum number of edges. If we have $n$ edges already set in the graph, and we are only $m$ levels above the maximum depth possible, and the smallest number of edges desired in the graph is $m+n+k$ where $k>0$, then we don't generate any children of that graph.
+
+This method is much faster than the prior methods as no powers of matrices are required, and even better than that, most operations that are conducted frequently are bitwise operations, which are quick. The only function that may take a long portion of time to calculate is the popcount function, but this is inbuilt on a lot of CPUs now.
+
+\section{Mask Approach to finding $C_3$ and $C_4$ free graphs}
+\subsection{Requirements of implementation language and hardware}
+As well as the requirements mentioned in section (\ref{sec:requirements}) it would also be benificial to have the following functions on the hardware for increased efficiency
+\begin{itemize}
+\item clz(n) which counts the number of leading zeroes in a binary string.
+\end{itemize}
+
+\subsection{Data structure for a graph}
+
+\subsection{Cycle detection}
+
+\subsection{Search tree}
 \end{document}
