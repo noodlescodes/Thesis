@@ -17,6 +17,7 @@
 \renewcommand{\deg}[1]{\text{deg}#1}
 \newcommand{\Tr}{\text{Tr}}
 \newcommand{\neigh}{\text{neigh}}
+\newcommand{\clz}{\text{clz}}
 
 \pagenumbering{arabic}
 \pagestyle{fancyplain}
@@ -216,6 +217,7 @@ and it would be benificial to have the following functions on the hardware for i
 \end{itemize}
 
 \subsubsection{Data structure for a graph}
+\label{sec:data_structure_one}
 The structure used is now an array of 32 bit integers of length 32. We only need to worry about 32 of the vertices as we can guarantee one vertex in the base graph is not going to be a part of a three or four cycle, and it won't ever be manipulated. The connection between two vertices, $i$ and $j$ is represented by the $j$th bit in the $i$th index of the array, and because of the symmetry of the adjacnecy matrix, vice versa. It is convienent to also have the following constants stored so as not to waste time calculating them frequently:
 \begin{itemize}
 \item DEPTH\_MASK = ($\sim$((uint32\_t) 0) $>>$ (32 - 22))
@@ -225,6 +227,7 @@ The structure used is now an array of 32 bit integers of length 32. We only need
 It is also worth noting that the depth a particular matrix is down the search tree is stored within the adjacency matrix itself, rather than as a seperate variable. This is the purpose of the constant DEPTH\_MASK, to remove it before checking for three or four cycles. The constant N is used to detect if there is a bit set in the first entry of a uint32\_t variable, which is where we store if a graph has a three or four cycle in it.
 
 \subsubsection{Cycle detection}
+\label{sec:cycle_detection_one}
 We now don't have a natural way to multiple two matrices together to generate a power of a matrix as we've limited the amount of space we're using to represent the connection of two edges to a single bit. We will exploit the fact that we only ever manipulate one connection before checking the girth again to get around calculating powers of matrices.
 
 The following assumes that the edge connecting vertices $i$ and $j$ has just been added.
@@ -234,7 +237,8 @@ To check for three cycles, we only need to check if the neighbourhoods of $i$ an
 Checking for four cycles is more complex. It requires checking to see if vertex $u\not= j$ is not in the neighbourhood of $j$, if it isn't then checking that the intersection of $j$ and $u$'s neighbourhoods have at least two elements in common, $v$ and $w$. If these conditions are satisfied then we have a four cycle $j,v,u,w,j$. So we need to verify that these conditions are not met for all $u\in V(G)$. Checking if $u=j$ is trivial, so assume that $u\not= j$. Then the objective is to make sure the neighbourhoods of $j$ and $u$ don't share two or more vertices. This is achieved through the popcount function. So if we take the popcount of the logical \emph{and} of vertex $u$ and $j$ and do a popcount on the resultant we end up with the cardinality of the intersection of the neighbourhoods of $u$ and $j$. Repeated this for all $u\in V(G)$ and if all of the intersections are less than two, then there is no four cycle in the graph.
 
 \subsubsection{Search tree}
-Essentially the same method is used as in section (\ref{sec:tree_poor_cycle}), a rooted binary tree is used to generate graphs with more edges than the base graph. The algorithm used is the same, with the only difference being in implementation rather than the ideas being used. We still use a stack to do a depth first search, prioritising the right portion of the tree first. We have added a new pruning condition as well, we record the depth a graph is in the tree so we can verify there are enough edges left to reach a lower bound on the maximum number of edges. If we have $n$ edges already set in the graph, and we are only $m$ levels above the maximum depth possible, and the smallest number of edges desired in the graph is $m+n+k$ where $k>0$, then we don't generate any children of that graph.
+\label{sec:search_tree_one}
+Essentially the same method is used as in section \ref{sec:tree_poor_cycle}, a rooted binary tree is used to generate graphs with more edges than the base graph. The algorithm used is the same, with the only difference being in implementation rather than the ideas being used. We still use a stack to do a depth first search, prioritising the right portion of the tree first. We have added a new pruning condition as well, we record the depth a graph is in the tree so we can verify there are enough edges left to reach a lower bound on the maximum number of edges. If we have $n$ edges already set in the graph, and we are only $m$ levels above the maximum depth possible, and the smallest number of edges desired in the graph is $m+n+k$ where $k>0$, then we don't generate any children of that graph.
 
 This method is much faster than the prior methods as no powers of matrices are required, and even better than that, most operations that are conducted frequently are bitwise operations, which are quick. The only function that may take a long portion of time to calculate is the popcount function, but this is inbuilt on a lot of CPUs now.
 
@@ -242,12 +246,30 @@ This method is much faster than the prior methods as no powers of matrices are r
 \subsection{Requirements of implementation language and hardware}
 As well as the requirements mentioned in section (\ref{sec:requirements}) it would also be benificial to have the following functions on the hardware for increased efficiency
 \begin{itemize}
-\item clz(n) which counts the number of leading zeroes in a binary string.
+\item $\clz(n)$ which counts the number of leading zeroes in a binary string.
 \end{itemize}
 
 \subsection{Data structure for a graph}
+The structure used is mostly the same as in section \ref{sec:data_structure_one}, but with the addition of another array of 32 bit integers of length 32, which we are going to call a \emph{mask}. For any given $C_3$ and $C_4$ free graph, the mask will have a $1$ in position $i,j$ if an edge can be added to the graph between vertices $i$ and $j$ such that the graph will remain $C_3$ and $C_4$ free, and a $0$ otherwise.
 
 \subsection{Cycle detection}
+Cycle detection is now not done in generating each child as we know that if we add an edge that is active in the mask then it is not going to generate a $C_3$ or $C_4$ subgraph. Instead, every time an edge is added, we have to update the mask by checking to see if adding any of the possible edges causes a new $C_3$ or $C_4$ subgraph, and if so, changing the entry in the mask to a 0. This may seem longer at first, but it becomes clear quite quickly that both theoretically and experimentally this approach is much quicker. If we can eliminate edge $uv$ at depth $n$ in the search tree, then it only needs to be eliminated once, rather than every time at depth $n+k$, where $k$ is the difference between the current depth and the depth $uv$ would be checked in the non masked approach. This gives an upper bound on the total number of nodes that don't need to be search as a result of this approach of $2^k$.
+
+While updating the mask, checking to see if any edge we add would cause a $C_3$ or $C_4$ subgraph is done in the same way cycle detection is done in \ref{sec:cycle_detection_one}. To speed up the process of finding which edges are candidates to be added to the graph, find the first non zero entry in the mask array, and then use the $\clz(n)$ function to find the first occurance of a bit set, which then gives the $i,j$ entry required\footnote{Need to add the actual algorithm because it's more sophisticated than this.}. 
 
 \subsection{Search tree}
+The same underlying method is used as in \ref{sec:search_tree_one}, although some of the pruning conditions can be made more aggressive now. We can improve the pruning based on depth to instead prune if the number of bits set in the graph and the number of bits set in the mask summed come to less than the desired number of edges required. Although not mentioned earlier, there is a condition to prune if the degree of any vertex is too small or big. It is now possible to tell if it is too small at any point while manipulating that vertex. If the sum of the number of edges already set from that vertex, and the number of possible edges left to be added is less than the minimum degree required, then we can prune at that point.
+
+\section{Multithreaded Search Tree}
+So far everything that has been mentioned has implicitly assumed running on a single thread, no care has been taken in ensuring thread safety. Being able to explore the search tree with more than one thread would be ideal though, although care needs to be taken to ensure the same sub trees are not being searched and a possible graph is not being discarded.
+
+One approach is to have a vector of $n+1$ stacks, where $n$ is the number of threads that are used to search the tree. The stack in position 0 is going to be called the \emph{main} stack, and the other $n$ stacks are called \emph{worker} stacks. We're also going to have $n+1$ threads, with the main thread calling $n$ other threads, which are called \emph{worker} threads. Each worker thread is given a unique identification number $1$ through to $n$, which is a parameter of the function used to invoke the thread.
+
+The main stack is filled by a breadth first search of the tree until $kn$ elements are in a queue, where $k$ is a constant that should be bigger than 30, although this number will need to be adjusted based on experimental trials per problem. That queue is then transfered to the main stack.
+
+After the main stack has all of the elements generated, the worker threads are spawned. Worker thread $i$ places the top ten (again, this number will need to be changed depending on the problem) elements of the main stack onto stack $i$, for all $i\in\{1,\ldots,n\}$. When the worker thread is accessing the main stack, it needs to lock access to just it's thread so as not to search the same subtree with different threads, or remove an element that has not be copied yet. This does result in blocking, and is a slow down at the beginning of the search when all $n$ worker threads want access to the main stack, this is a situation that can not be helped.
+
+After the worker stack has ten elements, the worker thread unlocks access to the main stack and start searching the tree using the elements it has access to. Should the stack end up empty, it will once again grab ten more elements from the main stack, again blocking the other worker threads from accessing it. This is less of an issue as it will be very rare two worker threads want to access the main stack at the same time after they all get the initial ten elements.
+
+The reason that $k\geq 30$ is picked is for balancing the worker threads. If $k=10$, then it is conceivable that one worker stack will produce a very small subtree and the associated thread will finish quickly, without any more work to do. This would be a waste of resources. But with $k\geq 30$, if one worker stack ends up producing a small subtree, then there is more work for it to do, with the idea being that small subtrees are going to be evenly distributed amoung all threads.
 \end{document}
